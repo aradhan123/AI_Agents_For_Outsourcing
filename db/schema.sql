@@ -4,7 +4,42 @@ CREATE TABLE users (
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
-  phone TEXT
+  phone TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- One user can have multiple login methods (password, google, ...)
+CREATE TABLE auth_identities (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL CHECK (provider IN ('password', 'google')),
+  provider_subject TEXT NOT NULL,
+  email TEXT,
+  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (provider, provider_subject)
+);
+
+-- Password credentials are stored separately from the user profile
+CREATE TABLE password_credentials (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  password_hash TEXT NOT NULL,
+  password_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Refresh tokens are stored hashed; tokens are rotated on refresh
+CREATE TABLE refresh_tokens (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ,
+  replaced_by_token_hash TEXT,
+  user_agent TEXT,
+  ip_address TEXT
 );
 
 -- We relate time slot preferences with the user via user_id, also days of the week must be between 0 and 6
@@ -26,7 +61,7 @@ CREATE TABLE groups (
 CREATE TABLE group_memberships (
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
-  role TEXT,
+  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
   PRIMARY KEY (user_id, group_id)
 );
 
@@ -64,5 +99,10 @@ CREATE TABLE meeting_attendees (
   PRIMARY KEY (meeting_id, user_id)
 );
 
-SELECT capacity FROM meetings WHERE id = $1;
-
+CREATE INDEX idx_time_slot_preferences_user_id ON time_slot_preferences(user_id);
+CREATE INDEX idx_group_memberships_group_id ON group_memberships(group_id);
+CREATE INDEX idx_user_calendars_user_id ON user_calendars(user_id);
+CREATE INDEX idx_meetings_calendar_id ON meetings(calendar_id);
+CREATE INDEX idx_meeting_attendees_user_id ON meeting_attendees(user_id);
+CREATE INDEX idx_auth_identities_user_id ON auth_identities(user_id);
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
