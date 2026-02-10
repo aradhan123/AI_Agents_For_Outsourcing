@@ -1,12 +1,11 @@
 import { Outlet } from "react-router-dom";
+import Navbar from "../components/Navbar";
 
 export default function AppLayout() {
   return (
-    <div className="app-layout">
-      <nav style={{ padding: "1rem", background: "#333", color: "white" }}>
-        <h2>AI Agents Dashboard</h2>
-      </nav>
-      <main style={{ padding: "2rem" }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#ecf0f1' }}>
+      <Navbar />
+      <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
         <Outlet />
       </main>
     </div>
