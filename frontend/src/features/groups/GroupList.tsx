@@ -1,8 +1,8 @@
 export default function GroupList() {
   return (
     <div>
-      <h1>My Groups</h1>
-      <p>Group management coming soon...</p>
+      <h2>Your Groups</h2>
+      <p>No groups yet.</p>
     </div>
   );
 }
