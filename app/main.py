@@ -1,9 +1,15 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.api.auth import router as auth_router
 from app.core.config import settings
+from app.models import User
 
+from app.api.deps import get_current_user,get_db
+
+router = APIRouter(prefix="/groups", tags=["groups"])
 
 def create_app() -> FastAPI:
     api = FastAPI(title="AI Agents API")
@@ -19,5 +25,19 @@ def create_app() -> FastAPI:
     api.include_router(auth_router)
     return api
 
-
+@router.get("/")
+def get_user_groups(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Fetch all groups the current logged-in user belongs to."""
+    
+    query = text("""
+        SELECT g.id, g.name, g.description, gm.role 
+        FROM groups g
+        JOIN group_memberships gm ON g.id = gm.group_id
+        WHERE gm.user_id = :user_id
+    """)
+    
+    
+    result = db.execute(query, {"user_id": current_user.id}).mappings().all()
+    
+    return [dict(row) for row in result]
 app = create_app()
