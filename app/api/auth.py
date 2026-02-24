@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -56,7 +56,7 @@ def _issue_tokens(db: Session, *, user: User, request: Request, response: Respon
 
     refresh_plain = generate_refresh_token()
     refresh_hash = hash_refresh_token(refresh_plain)
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     expires = now + timedelta(days=settings.refresh_token_expire_days)
     rt = RefreshToken(
         user_id=user.id,
@@ -136,7 +136,7 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     if rt.expires_at <= now:
         rt.revoked_at = now
         db.commit()
@@ -175,7 +175,7 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
         token_hash = hash_refresh_token(raw)
         rt = db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash)).scalar_one_or_none()
         if rt is not None and rt.revoked_at is None:
-            rt.revoked_at = datetime.now(UTC)
+            rt.revoked_at = datetime.now(timezone.utc)
             db.commit()
     _clear_refresh_cookie(response)
     return {"ok": True}

@@ -5,6 +5,7 @@ This repo currently includes:
 - Postgres via `docker-compose.yml`
 - Database schema in `db/schema.sql`
 - FastAPI backend (authentication + authorization helpers) under `app/`
+- Server-rendered web pages (merged from `LoginPage`) served by FastAPI at `/`
 
 ## Local Setup
 
@@ -27,6 +28,7 @@ This repo currently includes:
 `uvicorn app.main:app --reload`
 
 API docs: `http://127.0.0.1:8000/docs`
+Web login page: `http://127.0.0.1:8000/`
 
 ## Auth Endpoints
 
