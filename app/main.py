@@ -23,6 +23,7 @@ def create_app() -> FastAPI:
     )
 
     api.include_router(auth_router)
+    api.include_router(router)
     return api
 
 @router.get("/")
