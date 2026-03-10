@@ -8,10 +8,23 @@
 </head>
 <body>
   <main class="page">
-    <section class="card" style="width:min(720px, 100%);">
-      <a href="{{ url_for('web_meetings') }}" style="text-decoration:none; color: var(--muted); font-size:14px;">
-        &larr; Back to meetings
-      </a>
+    {% if messages %}
+      <div class="toasts" aria-live="polite" aria-atomic="true">
+        {% for item in messages %}
+          <div class="toast toast-{{ item['category'] }}">{{ item["message"] }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <section class="card" style="width:min(920px, 100%);">
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a href="{{ url_for('web_meetings') }}" style="text-decoration:none; color: var(--muted); font-size:14px;">
+          &larr; Back to meetings
+        </a>
+        <a href="{{ url_for('web_availability') }}" style="text-decoration:none; color: var(--blue); font-size:14px;">
+          Availability preferences
+        </a>
+      </div>
 
       <h2 style="margin:10px 0 6px;">{{ meeting["title"] }}</h2>
 
@@ -22,6 +35,36 @@
         <div><strong style="color:#111827;">Location:</strong> {{ meeting["location"] or "-" }}</div>
         <div><strong style="color:#111827;">Status:</strong> {{ meeting["status"] }}</div>
       </div>
+
+      <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;"/>
+
+      <h3 style="margin:0 0 10px;">Attendees + Availability</h3>
+      {% if attendees|length == 0 %}
+        <p style="color: var(--muted); margin: 8px 0 0;">No attendees have been added yet.</p>
+      {% else %}
+        <div style="overflow:auto; border:1px solid var(--border); border-radius:12px;">
+          <table style="width:100%; border-collapse:collapse; min-width: 760px;">
+            <thead>
+              <tr style="background:#f9fafb;">
+                <th style="text-align:left; padding:12px; font-size:13px; color:#475569;">Email</th>
+                <th style="text-align:left; padding:12px; font-size:13px; color:#475569;">Invite Status</th>
+                <th style="text-align:left; padding:12px; font-size:13px; color:#475569;">Availability</th>
+                <th style="text-align:left; padding:12px; font-size:13px; color:#475569;">Conflicts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for attendee in attendees %}
+                <tr style="border-top:1px solid var(--border);">
+                  <td style="padding:12px; font-size:14px;">{{ attendee["email"] }}</td>
+                  <td style="padding:12px; font-size:14px;">{{ attendee["invite_status"] }}</td>
+                  <td style="padding:12px; font-size:14px;">{{ attendee["availability_status"] }}</td>
+                  <td style="padding:12px; font-size:14px;">{{ attendee["conflicts"] }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
     </section>
   </main>
 </body>

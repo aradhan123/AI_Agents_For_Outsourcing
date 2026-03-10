@@ -21,9 +21,10 @@
         You are signed in as <strong>{{ email }}</strong>.
       </p>
 
-      <p style="margin:0 0 16px;">
-        <a href="{{ url_for('web_meetings') }}">Go to Meetings</a>
-      </p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin:0 0 16px;">
+        <a class="btn" style="width:auto; padding:10px 12px; text-decoration:none;" href="{{ url_for('web_meetings') }}">Meetings</a>
+        <a class="btn" style="width:auto; padding:10px 12px; text-decoration:none;" href="{{ url_for('web_availability') }}">Availability</a>
+      </div>
 
       <form method="POST" action="{{ url_for('web_logout') }}">
         <button class="btn btn-primary" type="submit">Log out</button>

@@ -16,7 +16,7 @@
       </div>
     {% endif %}
 
-    <section class="card" style="width: min(960px, 100%);">
+    <section class="card" style="width: min(1080px, 100%);">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
         <div>
           <h2 style="margin:0 0 6px;">Meetings</h2>
@@ -27,11 +27,107 @@
 
         <div style="display:flex; gap:10px;">
           <a class="btn" style="width:auto; padding:10px 12px; text-decoration:none;" href="{{ url_for('web_dashboard') }}">Dashboard</a>
+          <a class="btn" style="width:auto; padding:10px 12px; text-decoration:none;" href="{{ url_for('web_availability') }}">Availability</a>
           <form method="POST" action="{{ url_for('web_logout') }}">
             <button class="btn btn-primary" style="width:auto; padding:10px 12px;" type="submit">Log out</button>
           </form>
         </div>
       </div>
+
+      <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;"/>
+
+      <h3 style="margin:0 0 10px;">Create Meeting</h3>
+      <form method="POST" action="{{ url_for('web_meetings_create') }}" style="display:grid; gap:10px;">
+        <input type="hidden" name="q" value="{{ q }}" />
+        <input type="hidden" name="status" value="{{ status }}" />
+        <input type="hidden" name="mine" value="{% if mine %}1{% endif %}" />
+
+        <div style="display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+          <input
+            name="title"
+            value="{{ create_form['title'] }}"
+            placeholder="Meeting title"
+            required
+            style="border-radius:10px; border:1px solid var(--border); padding:10px 12px; font-size:14px;"
+          />
+
+          <input
+            name="location"
+            value="{{ create_form['location'] }}"
+            placeholder="Location (optional)"
+            style="border-radius:10px; border:1px solid var(--border); padding:10px 12px; font-size:14px;"
+          />
+        </div>
+
+        <div style="display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+          <div>
+            <label style="display:block; font-size:12px; color:var(--muted); margin-bottom:4px;">Start</label>
+            <input
+              type="datetime-local"
+              name="start_time"
+              value="{{ create_form['start_time'] }}"
+              required
+              style="width:100%; border-radius:10px; border:1px solid var(--border); padding:10px 12px; font-size:14px;"
+            />
+          </div>
+
+          <div>
+            <label style="display:block; font-size:12px; color:var(--muted); margin-bottom:4px;">End</label>
+            <input
+              type="datetime-local"
+              name="end_time"
+              value="{{ create_form['end_time'] }}"
+              required
+              style="width:100%; border-radius:10px; border:1px solid var(--border); padding:10px 12px; font-size:14px;"
+            />
+          </div>
+        </div>
+
+        <textarea
+          name="invitees"
+          placeholder="Invite users by email (comma, semicolon, or newline separated)"
+          rows="3"
+          style="border-radius:10px; border:1px solid var(--border); padding:10px 12px; font-size:14px;"
+        >{{ create_form['invitees'] }}</textarea>
+
+        {% if invitable_users %}
+          <p style="margin:0; color: var(--muted); font-size: 12px;">
+            Registered users: {{ invitable_users|join(", ") }}
+          </p>
+        {% endif %}
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn" style="width:auto; padding:10px 14px;" type="submit" formaction="{{ url_for('web_meetings_availability') }}">
+            Check availability
+          </button>
+          <button class="btn btn-primary" style="width:auto; padding:10px 14px;" type="submit">
+            Create meeting + invite
+          </button>
+        </div>
+      </form>
+
+      {% if availability_preview %}
+        <div style="margin-top:12px; overflow:auto; border:1px solid var(--border); border-radius:12px;">
+          <table style="width:100%; border-collapse:collapse; min-width: 680px;">
+            <thead>
+              <tr style="background:#f9fafb;">
+                <th style="text-align:left; padding:12px; font-size:13px; color:#475569;">Invitee</th>
+                <th style="text-align:left; padding:12px; font-size:13px; color:#475569;">Availability</th>
+                <th style="text-align:left; padding:12px; font-size:13px; color:#475569;">Conflicts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in availability_preview %}
+                <tr style="border-top:1px solid var(--border);">
+                  <td style="padding:12px; font-size:14px;">{{ p["email"] }}</td>
+                  <td style="padding:12px; font-size:14px;">{{ p["status"] }}</td>
+                  <td style="padding:12px; font-size:14px;">{{ p["conflicts"] }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
 
       <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;"/>
 
@@ -72,7 +168,7 @@
         <p style="color: var(--muted); margin: 8px 0 0;">No meetings found.</p>
       {% else %}
         <div style="overflow:auto; border:1px solid var(--border); border-radius:12px;">
-          <table style="width:100%; border-collapse:collapse; min-width: 760px;">
+          <table style="width:100%; border-collapse:collapse; min-width: 860px;">
             <thead>
               <tr style="background:#f9fafb;">
                 <th style="text-align:left; padding:12px; font-size:13px; color:#475569;">Title</th>
