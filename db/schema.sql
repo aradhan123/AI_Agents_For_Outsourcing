@@ -83,12 +83,17 @@ CREATE TABLE meetings (
   id SERIAL PRIMARY KEY,
   calendar_id INTEGER NOT NULL REFERENCES calendars(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
+  description TEXT,
   location TEXT,
+  color TEXT NOT NULL DEFAULT '#3498db',
   start_time TIMESTAMPTZ NOT NULL,
   end_time TIMESTAMPTZ NOT NULL,
   capacity INTEGER,
   setup_minutes INTEGER DEFAULT 0,
-  cleanup_minutes INTEGER DEFAULT 0
+  cleanup_minutes INTEGER DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'confirmed' CHECK (status IN ('proposed', 'confirmed', 'cancelled')),
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Here we relate the users with the meeting 
@@ -96,6 +101,7 @@ CREATE TABLE meeting_attendees (
   meeting_id INTEGER REFERENCES meetings(id) ON DELETE CASCADE,
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   status TEXT CHECK (status IN ('invited', 'accepted', 'declined')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (meeting_id, user_id)
 );
 

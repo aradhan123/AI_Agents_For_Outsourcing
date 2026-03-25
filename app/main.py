@@ -11,8 +11,10 @@ from sqlalchemy.orm import Session
 from app.api.auth import router as auth_router
 from app.api.availability import router as availability_router
 from app.api.calendar import router as calendar_router
+from app.api.meetings import router as meetings_router
 from app.core.config import settings
 from app.core.logging import configure_logging
+from app.db.bootstrap import ensure_runtime_schema
 from app.models import User
 
 from app.api.deps import get_current_user,get_db
@@ -25,6 +27,10 @@ logger = logging.getLogger("app")
 
 def create_app() -> FastAPI:
     api = FastAPI(title="AI Agents API")
+
+    @api.on_event("startup")
+    def bootstrap_runtime_schema() -> None:
+        ensure_runtime_schema()
 
     @api.middleware("http")
     async def request_logging(request: Request, call_next):
@@ -74,6 +80,7 @@ def create_app() -> FastAPI:
     api.include_router(availability_router)
 
     api.include_router(calendar_router)
+    api.include_router(meetings_router)
     return api
 
 @router.get("/")

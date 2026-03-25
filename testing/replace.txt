@@ -1,0 +1,7 @@
+https://accounts.google.com/o/oauth2/v2/auth?client_id=1022606895906-t2dkijgipeh8pl6c3295mkq97diiegdr.apps.googleusercontent.com&redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fauth%2Fgoogle%2Fcallback&response_type=code&scope=openid%20email%20profile&access_type=online&prompt=consent
+
+Microsoft OAuth secret: 9de12d91-a081-4cf7-aaa5-7024e38a06bf
+Client ID: 506cc942-d46a-4d3d-b434-368c24c8b220
+Redirect URI: http://localhost:8000/auth/microsoft/callback
+Tenant ID: c37f4d7d-4663-4ebd-86b3-9ca0e3658450
+

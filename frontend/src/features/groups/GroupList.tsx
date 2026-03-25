@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { apiJson } from '../../lib/api';
+
 interface Group {
   id: number;
   name: string;
@@ -16,36 +18,15 @@ export default function GroupList() {
 
   useEffect(() => {
     const fetchGroups = async () => {
-      // 1. Get the token saved during login
-      const token = localStorage.getItem('access_token');
-      
-      if (!token) {
-        // If no token, kick them back to login
-        navigate('/login');
-        return;
-      }
-
       try {
-        // 2. Fetch the groups from FastAPI
-        const response = await fetch('http://127.0.0.1:8000/groups/', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setGroups(data);
-        } else if (response.status === 401) {
-          // Token expired or invalid
-          localStorage.removeItem('access_token');
-          navigate('/login');
-        } else {
-          setError('Failed to fetch groups.');
-        }
+        const data = await apiJson<Group[]>('/groups/');
+        setGroups(data);
       } catch (err) {
-        setError('Could not connect to the backend server.');
+        if (err instanceof Error && err.message.toLowerCase().includes('not authenticated')) {
+          navigate('/login');
+          return;
+        }
+        setError(err instanceof Error ? err.message : 'Could not connect to the backend server.');
       } finally {
         setIsLoading(false);
       }

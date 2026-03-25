@@ -1,25 +1,25 @@
-const API_URL = "http://127.0.0.1:8000";
+import { apiJson } from "../lib/api";
 
-function getToken() {
-  return localStorage.getItem("access_token");
+export interface CalendarApiEvent {
+  id: number;
+  title: string;
+  location?: string | null;
+  color?: string | null;
+  start_time: string;
+  end_time: string;
 }
 
-function authHeaders() {
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${getToken()}`,
-  };
+export interface CalendarAvailabilitySlot {
+  id: number;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
 
 export async function fetchEvents() {
-  const res = await fetch(`${API_URL}/calendar/events`, {
-    headers: authHeaders(),
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error("Failed to fetch events");
-  return res.json();
+  return apiJson<CalendarApiEvent[]>("/calendar/events");
 }
 
 export async function createEvent(event: {
@@ -27,15 +27,12 @@ export async function createEvent(event: {
   start_time: string;
   end_time: string;
   location?: string;
+  color?: string;
 }) {
-  const res = await fetch(`${API_URL}/calendar/events`, {
+  return apiJson<CalendarApiEvent>("/calendar/events", {
     method: "POST",
-    headers: authHeaders(),
-    credentials: "include",
     body: JSON.stringify(event),
   });
-  if (!res.ok) throw new Error("Failed to create event");
-  return res.json();
 }
 
 export async function updateEvent(
@@ -45,37 +42,25 @@ export async function updateEvent(
     start_time?: string;
     end_time?: string;
     location?: string;
+    color?: string;
   }
 ) {
-  const res = await fetch(`${API_URL}/calendar/events/${eventId}`, {
+  return apiJson<CalendarApiEvent>(`/calendar/events/${eventId}`, {
     method: "PUT",
-    headers: authHeaders(),
-    credentials: "include",
     body: JSON.stringify(event),
   });
-  if (!res.ok) throw new Error("Failed to update event");
-  return res.json();
 }
 
 export async function deleteEvent(eventId: number) {
-  const res = await fetch(`${API_URL}/calendar/events/${eventId}`, {
+  return apiJson<{ message: string }>(`/calendar/events/${eventId}`, {
     method: "DELETE",
-    headers: authHeaders(),
-    credentials: "include",
   });
-  if (!res.ok) throw new Error("Failed to delete event");
-  return res.json();
 }
 
 // ── Availability ──────────────────────────────────────────────────────────────
 
 export async function fetchAvailability() {
-  const res = await fetch(`${API_URL}/calendar/availability`, {
-    headers: authHeaders(),
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error("Failed to fetch availability");
-  return res.json();
+  return apiJson<CalendarAvailabilitySlot[]>("/calendar/availability");
 }
 
 export async function createAvailability(slot: {
@@ -83,22 +68,14 @@ export async function createAvailability(slot: {
   start_time: string;
   end_time: string;
 }) {
-  const res = await fetch(`${API_URL}/calendar/availability`, {
+  return apiJson<CalendarAvailabilitySlot>("/calendar/availability", {
     method: "POST",
-    headers: authHeaders(),
-    credentials: "include",
     body: JSON.stringify(slot),
   });
-  if (!res.ok) throw new Error("Failed to create availability");
-  return res.json();
 }
 
 export async function deleteAvailability(slotId: number) {
-  const res = await fetch(`${API_URL}/calendar/availability/${slotId}`, {
+  return apiJson<{ message: string }>(`/calendar/availability/${slotId}`, {
     method: "DELETE",
-    headers: authHeaders(),
-    credentials: "include",
   });
-  if (!res.ok) throw new Error("Failed to delete availability");
-  return res.json();
 }

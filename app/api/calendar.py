@@ -6,6 +6,7 @@ from typing import Optional
 from datetime import datetime
 
 from app.api.deps import get_current_user, get_db
+from app.db.calendars import get_or_create_user_calendar
 from app.models import User
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
@@ -40,36 +41,6 @@ class AvailabilityUpdate(BaseModel):
     end_time: Optional[str] = None
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def get_or_create_user_calendar(user_id: int, db: Session) -> int:
-    """Get the user's personal calendar id, creating one if it doesn't exist."""
-    result = db.execute(text("""
-        SELECT c.id FROM calendars c
-        JOIN user_calendars uc ON c.id = uc.calendar_id
-        WHERE uc.user_id = :user_id AND c.owner_type = 'user'
-        LIMIT 1
-    """), {"user_id": user_id}).fetchone()
-
-    if result:
-        return result[0]
-
-    # Create a new calendar for the user
-    new_cal = db.execute(text("""
-        INSERT INTO calendars (name, owner_type, owner_id)
-        VALUES (:name, 'user', :owner_id)
-        RETURNING id
-    """), {"name": "My Calendar", "owner_id": user_id}).fetchone()
-
-    db.execute(text("""
-        INSERT INTO user_calendars (user_id, calendar_id)
-        VALUES (:user_id, :calendar_id)
-    """), {"user_id": user_id, "calendar_id": new_cal[0]})
-
-    db.commit()
-    return new_cal[0]
-
-
 # ── Events ────────────────────────────────────────────────────────────────────
 
 @router.get("/events")
@@ -81,7 +52,7 @@ def get_events(
     calendar_id = get_or_create_user_calendar(current_user.id, db)
 
     events = db.execute(text("""
-        SELECT id, title, location, color, start_time, end_time
+        SELECT id, title, location, COALESCE(color, '#3498db') AS color, start_time, end_time
         FROM meetings
         WHERE calendar_id = :calendar_id
         ORDER BY start_time ASC
@@ -97,12 +68,15 @@ def create_event(
     db: Session = Depends(get_db)
 ):
     """Create a new event in the user's calendar."""
+    if payload.end_time <= payload.start_time:
+        raise HTTPException(status_code=400, detail="end_time must be after start_time")
+
     calendar_id = get_or_create_user_calendar(current_user.id, db)
 
     result = db.execute(text("""
-        INSERT INTO meetings (calendar_id, title, location, color, start_time, end_time)
-        VALUES (:calendar_id, :title, :location, :color, :start_time, :end_time)
-        RETURNING id, title, location, color, start_time, end_time
+        INSERT INTO meetings (calendar_id, title, location, color, start_time, end_time, status, created_by)
+        VALUES (:calendar_id, :title, :location, :color, :start_time, :end_time, 'confirmed', :created_by)
+        RETURNING id, title, location, COALESCE(color, '#3498db') AS color, start_time, end_time
     """), {
         "calendar_id": calendar_id,
         "title": payload.title,
@@ -110,6 +84,7 @@ def create_event(
         "color": payload.color,
         "start_time": payload.start_time,
         "end_time": payload.end_time,
+        "created_by": current_user.id,
     }).fetchone()
 
     db.commit()
@@ -139,13 +114,26 @@ def update_event(
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
 
+    start_time = updates.get("start_time")
+    end_time = updates.get("end_time")
+    if start_time is not None or end_time is not None:
+        existing_row = db.execute(text("""
+            SELECT start_time, end_time FROM meetings WHERE id = :event_id
+        """), {"event_id": event_id}).mappings().one()
+        if start_time is None:
+            start_time = existing_row["start_time"]
+        if end_time is None:
+            end_time = existing_row["end_time"]
+        if end_time <= start_time:
+            raise HTTPException(status_code=400, detail="end_time must be after start_time")
+
     set_clause = ", ".join(f"{k} = :{k}" for k in updates)
     updates["event_id"] = event_id
 
     result = db.execute(text(f"""
         UPDATE meetings SET {set_clause}
         WHERE id = :event_id
-        RETURNING id, title, location, color, start_time, end_time
+        RETURNING id, title, location, COALESCE(color, '#3498db') AS color, start_time, end_time
     """), updates).fetchone()
 
     db.commit()
