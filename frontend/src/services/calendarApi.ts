@@ -27,6 +27,7 @@ export async function createEvent(event: {
   start_time: string;
   end_time: string;
   location?: string;
+  color?: string;
 }) {
   const res = await fetch(`${API_URL}/calendar/events`, {
     method: "POST",
@@ -45,6 +46,7 @@ export async function updateEvent(
     start_time?: string;
     end_time?: string;
     location?: string;
+    color?: string;
   }
 ) {
   const res = await fetch(`${API_URL}/calendar/events/${eventId}`, {

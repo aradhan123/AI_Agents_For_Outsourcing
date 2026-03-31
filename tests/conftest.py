@@ -33,7 +33,7 @@ def _db_cleanup():
     try:
         db.execute(
             text(
-                "TRUNCATE TABLE refresh_tokens, password_credentials, auth_identities, users RESTART IDENTITY CASCADE"
+                "TRUNCATE TABLE refresh_tokens, password_credentials, auth_identities, group_memberships, groups, users RESTART IDENTITY CASCADE"
             )
         )
         db.commit()

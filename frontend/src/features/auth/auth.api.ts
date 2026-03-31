@@ -1,5 +1,7 @@
 const API_URL = "http://127.0.0.1:8000";
 
+import type { LoginRequest, RegisterRequest } from "./auth.types";
+
 export async function login(data: LoginRequest) {
   const res = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
