@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import MonthView from "./MonthView";
 import WeekView from "./WeekView";
 import {
-  ApiError,
   fetchEvents,
   createEvent,
   updateEvent,
@@ -19,6 +18,7 @@ export type CalendarEvent = {
   endMinute: number;
   color?: string;
   location?: string;
+  status?: "invited" | "accepted" | "declined" | "maybe" | null;
 };
 
 function toLocalEvent(e: any): CalendarEvent {
@@ -94,7 +94,7 @@ export default function PersonalCalendar() {
       const data = await fetchEvents();
       setEvents(data.map(toLocalEvent));
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
+      if (err instanceof Error && /not authenticated|invalid token|401/i.test(err.message)) {
         setError("Your session expired. Please log in again.");
       } else {
         setError("Failed to load events. Please try again.");

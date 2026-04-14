@@ -27,6 +27,16 @@ router = APIRouter(prefix="/groups", tags=["groups"])
 configure_logging(settings.log_level)
 logger = logging.getLogger("app")
 
+
+def _allowed_origins() -> list[str]:
+    origins = {
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    }
+    if settings.frontend_origin:
+        origins.add(settings.frontend_origin)
+    return sorted(origins)
+
 def create_app() -> FastAPI:
     api = FastAPI(title="AI Agents API")
 
@@ -71,7 +81,7 @@ def create_app() -> FastAPI:
 
     api.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.frontend_origin] if settings.frontend_origin else [],
+        allow_origins=_allowed_origins(),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
