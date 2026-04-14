@@ -23,17 +23,31 @@ def _require_db():
 @pytest.fixture(scope="session")
 def client() -> TestClient:
     app = create_app()
-    return TestClient(app)
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture(autouse=True)
 def _db_cleanup():
-    # Truncate auth-related tables between tests.
     db = SessionLocal()
     try:
         db.execute(
             text(
-                "TRUNCATE TABLE refresh_tokens, password_credentials, auth_identities, group_memberships, groups, users RESTART IDENTITY CASCADE"
+                """
+                TRUNCATE TABLE
+                    meeting_attendees,
+                    meetings,
+                    user_calendars,
+                    calendars,
+                    time_slot_preferences,
+                    group_memberships,
+                    groups,
+                    refresh_tokens,
+                    password_credentials,
+                    auth_identities,
+                    users
+                RESTART IDENTITY CASCADE
+                """
             )
         )
         db.commit()

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { login } from "./auth.api";
 
 export default function Login() {
-  const { setToken } = useAuth();
+  const { setToken, refreshSession } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,21 +19,12 @@ export default function Login() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
-      });
-      if (!res.ok) {
-        setError("Invalid email or password.");
-        return;
-      }
-      const data = await res.json();
+      const data = await login({ email, password });
       setToken(data.access_token);
+      await refreshSession();
       navigate("/");
-    } catch {
-      setError("Could not connect to server.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not connect to server.");
     } finally {
       setLoading(false);
     }

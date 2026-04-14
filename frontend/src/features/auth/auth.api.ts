@@ -1,27 +1,26 @@
-const API_URL = "http://127.0.0.1:8000";
+import { apiJson } from "../../lib/api";
+import type { AuthResponse, LoginRequest, RegisterRequest, SessionUser } from "./auth.types";
 
 import type { LoginRequest, RegisterRequest } from "./auth.types";
 
 export async function login(data: LoginRequest) {
-  const res = await fetch(`${API_URL}/auth/login`, {
+  return apiJson<AuthResponse>("/auth/login", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify(data),
-  });
-
-  if (!res.ok) throw new Error("Login failed");
-  return res.json();
+  }, { retryOn401: false });
 }
 
 export async function register(data: RegisterRequest) {
-  const res = await fetch(`${API_URL}/auth/register`, {
+  return apiJson<AuthResponse>("/auth/register", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify(data),
-  });
+  }, { retryOn401: false });
+}
 
-  if (!res.ok) throw new Error("Registration failed");
-  return res.json();
+export async function fetchCurrentUser() {
+  return apiJson<SessionUser>("/auth/me");
+}
+
+export async function logout() {
+  return apiJson<{ ok: boolean }>("/auth/logout", { method: "POST" }, { retryOn401: false });
 }

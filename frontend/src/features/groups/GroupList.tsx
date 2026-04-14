@@ -17,21 +17,12 @@ export default function GroupList() {
 
   useEffect(() => {
     const fetchGroups = async () => {
-      // 1. Get the token saved during login
-      const token = localStorage.getItem('access_token');
-      
-      if (!token) {
-        // If no token, kick them back to login
-        navigate('/login');
-        return;
-      }
-
       try {
         const data = await getGroups();
         setGroups(data);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Could not connect to the backend server.';
-        if (message.toLowerCase().includes('unauthorized')) {
+        if (message.toLowerCase().includes('unauthorized') || message.toLowerCase().includes('not authenticated')) {
           localStorage.removeItem('access_token');
           navigate('/login');
           return;

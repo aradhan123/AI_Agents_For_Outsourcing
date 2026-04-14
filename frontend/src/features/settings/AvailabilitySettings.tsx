@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+
+import { apiJson } from '../../lib/api';
 
 interface TimeSlot {
   day_of_week: number;
@@ -33,7 +34,6 @@ const formatTimeDisplay = (time24: string) => {
 const TIME_OPTIONS = generateTimeOptions();
 
 export default function AvailabilitySettings() {
-  const { token } = useAuth();
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -41,34 +41,28 @@ export default function AvailabilitySettings() {
   useEffect(() => {
     const fetchAvailability = async () => {
       try {
-        const res = await fetch('http://127.0.0.1:8000/availability/', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) setSlots(await res.json());
+        const data = await apiJson<TimeSlot[]>('/availability/');
+        setSlots(data);
       } catch (error) {
         console.error("Failed to fetch availability", error);
       } finally {
         setIsLoading(false);
       }
     };
-    if (token) fetchAvailability();
-  }, [token]);
+    fetchAvailability();
+  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/availability/', {
+      await apiJson<TimeSlot[]>('/availability/', {
         method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(slots)
       });
-      if (res.ok) alert("Working hours saved successfully!");
-      else alert("Failed to save schedule.");
+      alert("Working hours saved successfully!");
     } catch (error) {
       console.error(error);
+      alert(error instanceof Error ? error.message : 'Failed to save schedule.');
     } finally {
       setIsSaving(false);
     }

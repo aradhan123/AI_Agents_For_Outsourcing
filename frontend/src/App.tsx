@@ -12,7 +12,10 @@ import MeetingList from "./features/meetings/MeetingList";
 import ProfileSettings from "./features/settings/ProfileSettings";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { token } = useAuth();
+  const { token, isLoading } = useAuth();
+  if (isLoading) {
+    return <div style={{ padding: "3rem", textAlign: "center" }}>Restoring your session...</div>;
+  }
   return token ? <>{children}</> : <Navigate to="/login" />;
 }
 
