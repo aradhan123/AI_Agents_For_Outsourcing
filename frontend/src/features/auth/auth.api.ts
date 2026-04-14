@@ -1,6 +1,8 @@
 import { apiJson } from "../../lib/api";
 import type { AuthResponse, LoginRequest, RegisterRequest, SessionUser } from "./auth.types";
 
+import type { LoginRequest, RegisterRequest } from "./auth.types";
+
 export async function login(data: LoginRequest) {
   return apiJson<AuthResponse>("/auth/login", {
     method: "POST",
