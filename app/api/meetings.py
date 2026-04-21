@@ -7,6 +7,7 @@ from app.db.calendars import get_or_create_user_calendar
 from app.models import User
 from app.schemas.meetings import MeetingCreate, MeetingResponse, MeetingRsvpUpdate, MeetingUpdate
 from app.schemas.recommendations import RecommendationRequest, RecommendationResponse
+from app.services.notifications import notify_meeting_cancelled, notify_meeting_invite, notify_meeting_updated
 from app.services.recommendations import recommend_common_slots
 
 
@@ -339,6 +340,7 @@ def create_meeting(
     meeting_id = created[0]
     _replace_attendees(meeting_id, current_user.id, attendee_user_ids, db)
     db.commit()
+    notify_meeting_invite(meeting_id, db)
     return _serialize_meeting(meeting_id, current_user.id, db)
 
 
@@ -350,7 +352,13 @@ def update_meeting(
     db: Session = Depends(get_db),
 ):
     existing = db.execute(
-        text("SELECT id, created_by, start_time, end_time FROM meetings WHERE id = :meeting_id"),
+        text(
+            """
+            SELECT id, created_by, title, location, meeting_type, start_time, end_time
+            FROM meetings
+            WHERE id = :meeting_id
+            """
+        ),
         {"meeting_id": meeting_id},
     ).mappings().first()
     if existing is None:
@@ -360,6 +368,10 @@ def update_meeting(
 
     updates = payload.model_dump(exclude_unset=True)
     attendee_emails = updates.pop("attendee_emails", None)
+    should_notify_update = any(
+        field in updates and updates[field] != existing[field]
+        for field in {"title", "location", "meeting_type", "start_time", "end_time"}
+    )
 
     start_time = updates.get("start_time", existing["start_time"])
     end_time = updates.get("end_time", existing["end_time"])
@@ -387,6 +399,8 @@ def update_meeting(
         _replace_attendees(meeting_id, current_user.id, attendee_user_ids, db)
 
     db.commit()
+    if should_notify_update:
+        notify_meeting_updated(meeting_id, db)
     return _serialize_meeting(meeting_id, current_user.id, db)
 
 
@@ -410,6 +424,7 @@ def cancel_meeting(
         {"meeting_id": meeting_id},
     )
     db.commit()
+    notify_meeting_cancelled(meeting_id, db)
     return _serialize_meeting(meeting_id, current_user.id, db)
 
 

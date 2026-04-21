@@ -13,6 +13,7 @@ from app.api.auth import router as auth_router
 from app.api.availability import router as availability_router
 from app.api.calendar import router as calendar_router
 from app.api.meetings import router as meetings_router
+from app.api.notifications import router as notifications_router
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db.bootstrap import ensure_runtime_schema
@@ -93,6 +94,7 @@ def create_app() -> FastAPI:
 
     api.include_router(calendar_router)
     api.include_router(meetings_router)
+    api.include_router(notifications_router)
     return api
 
 @router.get("/")
