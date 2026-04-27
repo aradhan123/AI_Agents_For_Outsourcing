@@ -116,6 +116,13 @@ export default function GroupList() {
               <p className="text-slate-500 dark:text-slate-400 text-sm">
                 {group.description || 'No description provided.'}
               </p>
+              <button
+                type="button"
+                onClick={() => navigate(`/groups/${group.id}`)}
+                className="mt-5 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                View details
+              </button>
             </div>
           ))}
         </div>
