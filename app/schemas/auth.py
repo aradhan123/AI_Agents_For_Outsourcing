@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-
+from typing import Optional
 
 class RegisterRequest(BaseModel):
     first_name: str = Field(min_length=1)
@@ -31,3 +31,10 @@ class MeResponse(BaseModel):
     last_name: str
     email: EmailStr
     phone: str | None = None
+
+class UpdateProfileRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    current_password: Optional[str] = None
+    new_password: Optional[str] = None

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  cancelMeeting,
   listMeetings,
   updateMeetingRsvp,
   type Meeting,
 } from "../../services/meetingsApi";
 import CreateMeetingModal from "./CreateMeetingModal";
-
+import RescheduleMeetingModal from "./RescheduleMeetingModal";
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString([], {
     timeZone: "UTC",
@@ -67,6 +68,7 @@ export default function MeetingList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [reschedulingMeeting, setReschedulingMeeting] = useState<Meeting | null>(null);
 
   async function loadMeetings() {
     setLoading(true);
@@ -117,6 +119,15 @@ export default function MeetingList() {
     }
   }
 
+  async function handleCancel(meetingId: number) {
+    try {
+      await cancelMeeting(meetingId);
+      await loadMeetings();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to cancel meeting.");
+    }
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex justify-between items-start md:items-center flex-col md:flex-row gap-4">
@@ -148,6 +159,8 @@ export default function MeetingList() {
                 key={meeting.id}
                 meeting={meeting}
                 onRsvp={handleRsvp}
+                onCancel={handleCancel}
+                onReschedule={setReschedulingMeeting}
               />
             ))}
           </section>
@@ -158,6 +171,8 @@ export default function MeetingList() {
                 key={meeting.id}
                 meeting={meeting}
                 onRsvp={handleRsvp}
+                onCancel={handleCancel}
+                onReschedule={setReschedulingMeeting}
               />
             ))}
           </section>
@@ -171,6 +186,14 @@ export default function MeetingList() {
           onSuccess={() => { setIsModalOpen(false); loadMeetings(); }}
         />
       )}
+
+      {reschedulingMeeting && (
+        <RescheduleMeetingModal
+          onClose={() => setReschedulingMeeting(null)}
+          meeting={reschedulingMeeting}
+          onSuccess={() => { setReschedulingMeeting(null); loadMeetings(); }}
+        />
+      )}
     </div>
   );
 }
@@ -178,9 +201,13 @@ export default function MeetingList() {
 function MeetingCard({
   meeting,
   onRsvp,
+  onCancel,
+  onReschedule,
 }: {
   meeting: Meeting;
   onRsvp: (meetingId: number, status: "accepted" | "declined" | "maybe") => Promise<void>;
+  onCancel: (meetingId: number) => Promise<void>;
+  onReschedule: (meeting: Meeting) => void;
 }) {
   const isCancelled = meeting.status === "cancelled";
   const rsvp = meeting.current_user_status;
@@ -236,6 +263,19 @@ function MeetingCard({
         </div>
       )}
 
+      {!isCancelled && meeting.is_organizer && (
+        <div className="mt-4 flex gap-2">
+          {meeting.declined_count > 0 && (
+            <button
+              onClick={() => onReschedule(meeting)}
+              className="rounded-lg px-3 py-1.5 text-sm font-medium border border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-950 transition-colors"
+            >
+              🔄 Reschedule
+            </button>
+          )}
+        </div>
+      )}
+
       {!isCancelled && !meeting.is_organizer && (
         <div className="mt-4 flex gap-2">
           {(["accepted", "declined", "maybe"] as const).map((s) => (
@@ -251,6 +291,6 @@ function MeetingCard({
           ))}
         </div>
       )}
-    </article>
+      </article>
   );
 }

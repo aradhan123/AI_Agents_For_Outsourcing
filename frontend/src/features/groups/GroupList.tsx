@@ -61,7 +61,7 @@ export default function GroupList() {
           </button>
         </div>
       </div>
-
+      
       {groups.length === 0 ? (
         <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-8 text-center border border-slate-200 dark:border-slate-700">
           <p className="text-slate-500 dark:text-slate-400">You are not a member of any groups yet.</p>
@@ -81,7 +81,7 @@ export default function GroupList() {
                       type="button"
                       onClick={() => setOpenMenuGroupId((current) => (current === group.id ? null : group.id))}
                       className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white transition"
-                      aria-label={`Show invite token for ${group.name}`}
+                      aria-label={`Show join token for ${group.name}`}
                     >
                       <FiMoreVertical className="h-5 w-5" />
                     </button>
@@ -89,7 +89,7 @@ export default function GroupList() {
                     {openMenuGroupId === group.id && (
                       <div className="absolute right-0 top-11 z-20 w-64 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-lg">
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
-                          Invitation Code
+                          Group Token
                         </p>
                         <div className="rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 font-mono text-sm tracking-[0.3em] text-slate-800 dark:text-white break-all">
                           {formatGroupToken(group.id)}
@@ -116,18 +116,6 @@ export default function GroupList() {
               <p className="text-slate-500 dark:text-slate-400 text-sm">
                 {group.description || 'No description provided.'}
               </p>
-              <div className="mt-5 flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate(`/groups/${group.id}`)}
-                  className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-700"
-                >
-                  View details
-                </button>
-                <span className="text-xs text-slate-400 dark:text-slate-500">
-                  Open the group workspace
-                </span>
-              </div>
             </div>
           ))}
         </div>

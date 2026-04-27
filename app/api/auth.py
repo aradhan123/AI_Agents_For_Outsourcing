@@ -24,6 +24,7 @@ from app.schemas.auth import (
     MeResponse,
     RegisterRequest,
     TokenResponse,
+    UpdateProfileRequest,
 )
 
 
@@ -148,7 +149,6 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="User not found")
 
-    # Rotate refresh token
     new_plain = generate_refresh_token()
     new_hash = hash_refresh_token(new_plain)
     rt.revoked_at = now
@@ -192,6 +192,45 @@ def me(user: User = Depends(get_current_user)):
     )
 
 
+@router.patch("/me", response_model=MeResponse)
+def update_me(
+    payload: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if payload.new_password:
+        if not payload.current_password:
+            raise HTTPException(status_code=400, detail="Current password is required to set a new password")
+        cred = db.get(PasswordCredential, current_user.id)
+        if cred is None or not verify_password(payload.current_password, cred.password_hash):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        cred.password_hash = hash_password(payload.new_password)
+
+    if payload.first_name is not None:
+        current_user.first_name = payload.first_name.strip()
+    if payload.last_name is not None:
+        current_user.last_name = payload.last_name.strip()
+    if payload.email is not None:
+        email_norm = payload.email.strip().lower()
+        if email_norm != current_user.email:
+            existing = db.execute(
+                select(User).where(User.email == email_norm)
+            ).scalar_one_or_none()
+            if existing is not None:
+                raise HTTPException(status_code=409, detail="Email already in use")
+            current_user.email = email_norm
+
+    db.commit()
+    db.refresh(current_user)
+    return MeResponse(
+        id=current_user.id,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        email=current_user.email,
+        phone=current_user.phone,
+    )
+
+
 def _google_exchange_code(*, code: str, code_verifier: str | None, redirect_uri: str) -> dict:
     if not settings.google_client_id or not settings.google_client_secret:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
@@ -226,7 +265,7 @@ def _verify_google_id_token(id_token: str) -> dict:
     if not claims.get("sub"):
         raise HTTPException(status_code=401, detail="Invalid Google token")
     if not claims.get("email"):
-        raise HTTPException(status_code=401, detail="Google account missing email")
+        raise HTTPException(status_code=401, detail="Invalid Google token")
     if claims.get("email_verified") is not True:
         raise HTTPException(status_code=401, detail="Google email not verified")
     return claims
@@ -252,7 +291,6 @@ def google_exchange(payload: GoogleExchangeRequest, request: Request, response: 
             raise HTTPException(status_code=401, detail="User not found")
         return _issue_tokens(db, user=user, request=request, response=response)
 
-    # Prevent auto-merging by email to avoid account takeover.
     existing = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
     if existing is not None:
         raise HTTPException(

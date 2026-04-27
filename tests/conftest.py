@@ -35,6 +35,8 @@ def _db_cleanup():
             text(
                 """
                 TRUNCATE TABLE
+                    notifications,
+                    notification_preferences,
                     meeting_attendees,
                     meetings,
                     user_calendars,

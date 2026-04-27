@@ -7,6 +7,7 @@ from app.db.calendars import get_or_create_user_calendar
 from app.models import User
 from app.schemas.meetings import MeetingCreate, MeetingResponse, MeetingRsvpUpdate, MeetingUpdate
 from app.schemas.recommendations import RecommendationRequest, RecommendationResponse
+from app.services.notifications import notify_meeting_cancelled, notify_meeting_invite, notify_meeting_updated
 from app.services.recommendations import recommend_common_slots
 
 
@@ -206,32 +207,6 @@ def _validate_meeting_window(start_time, end_time) -> None:
         raise HTTPException(status_code=400, detail="end_time must be after start_time")
 
 
-def _sync_attendee_calendar(meeting_id: int, user_id: int, status: str, db: Session) -> None:
-    if status in ("accepted", "maybe"):
-        attendee_calendar_id = get_or_create_user_calendar(user_id, db)
-        db.execute(
-            text(
-                """
-                INSERT INTO attendee_calendar_links (meeting_id, user_id, calendar_id)
-                VALUES (:meeting_id, :user_id, :calendar_id)
-                ON CONFLICT (meeting_id, user_id) DO UPDATE
-                    SET calendar_id = EXCLUDED.calendar_id
-                """
-            ),
-            {"meeting_id": meeting_id, "user_id": user_id, "calendar_id": attendee_calendar_id},
-        )
-    elif status == "declined":
-        db.execute(
-            text(
-                """
-                DELETE FROM attendee_calendar_links
-                WHERE meeting_id = :meeting_id AND user_id = :user_id
-                """
-            ),
-            {"meeting_id": meeting_id, "user_id": user_id},
-        )
-
-
 @router.get("/", response_model=list[MeetingResponse])
 def list_meetings(
     include_cancelled: bool = Query(False),
@@ -365,6 +340,7 @@ def create_meeting(
     meeting_id = created[0]
     _replace_attendees(meeting_id, current_user.id, attendee_user_ids, db)
     db.commit()
+    notify_meeting_invite(meeting_id, db)
     return _serialize_meeting(meeting_id, current_user.id, db)
 
 
@@ -376,7 +352,13 @@ def update_meeting(
     db: Session = Depends(get_db),
 ):
     existing = db.execute(
-        text("SELECT id, created_by, start_time, end_time FROM meetings WHERE id = :meeting_id"),
+        text(
+            """
+            SELECT id, created_by, title, location, meeting_type, start_time, end_time
+            FROM meetings
+            WHERE id = :meeting_id
+            """
+        ),
         {"meeting_id": meeting_id},
     ).mappings().first()
     if existing is None:
@@ -386,6 +368,10 @@ def update_meeting(
 
     updates = payload.model_dump(exclude_unset=True)
     attendee_emails = updates.pop("attendee_emails", None)
+    should_notify_update = any(
+        field in updates and updates[field] != existing[field]
+        for field in {"title", "location", "meeting_type", "start_time", "end_time"}
+    )
 
     start_time = updates.get("start_time", existing["start_time"])
     end_time = updates.get("end_time", existing["end_time"])
@@ -413,6 +399,8 @@ def update_meeting(
         _replace_attendees(meeting_id, current_user.id, attendee_user_ids, db)
 
     db.commit()
+    if should_notify_update:
+        notify_meeting_updated(meeting_id, db)
     return _serialize_meeting(meeting_id, current_user.id, db)
 
 
@@ -435,11 +423,8 @@ def cancel_meeting(
         text("UPDATE meetings SET status = 'cancelled' WHERE id = :meeting_id"),
         {"meeting_id": meeting_id},
     )
-    db.execute(
-        text("DELETE FROM attendee_calendar_links WHERE meeting_id = :meeting_id"),
-        {"meeting_id": meeting_id},
-    )
     db.commit()
+    notify_meeting_cancelled(meeting_id, db)
     return _serialize_meeting(meeting_id, current_user.id, db)
 
 
@@ -522,12 +507,56 @@ def update_rsvp(
         {"meeting_id": meeting_id, "user_id": current_user.id, "status": payload.status},
     )
 
-    if current_user.id != meeting["created_by"]:
-        _sync_attendee_calendar(meeting_id, current_user.id, payload.status, db)
-
     db.commit()
     return _serialize_meeting(meeting_id, current_user.id, db)
 
+@router.post("/{meeting_id}/reschedule-suggestions", response_model=RecommendationResponse)
+def get_reschedule_suggestions(
+    meeting_id: int,
+    payload: RecommendationRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    meeting = db.execute(
+        text("SELECT id, created_by, start_time, end_time FROM meetings WHERE id = :meeting_id"),
+        {"meeting_id": meeting_id},
+    ).mappings().first()
+    if meeting is None:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    if meeting["created_by"] != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the organizer can get reschedule suggestions")
+
+    participant_ids = _resolve_attendee_user_ids(db, [str(email) for email in payload.attendee_emails])
+    if payload.include_organizer and current_user.id not in participant_ids:
+        participant_ids = [current_user.id, *participant_ids]
+
+    if not participant_ids:
+        raise HTTPException(status_code=400, detail="At least one participant is required")
+
+    participant_rows = _load_users_by_ids(db, participant_ids)
+    recommendations = recommend_common_slots(
+        user_ids=participant_ids,
+        start_date=payload.start_date,
+        end_date=payload.end_date,
+        duration_minutes=payload.duration_minutes,
+        max_results=payload.max_results,
+        db=db,
+        exclude_meeting_id=meeting_id,
+    )
+
+    return {
+        "attendees": [
+            {
+                "user_id": row["id"],
+                "email": row["email"],
+                "first_name": row["first_name"],
+                "last_name": row["last_name"],
+            }
+            for row in participant_rows
+        ],
+        "duration_minutes": payload.duration_minutes,
+        "recommendations": recommendations,
+    }
 
 @router.get("/{meeting_id}/availability")
 def get_availability(
