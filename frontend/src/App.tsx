@@ -6,6 +6,7 @@ import Login from "./features/auth/Login";
 import Signup from "./features/auth/Signup";
 import Dashboard from "./features/dashboard/Dashboard";
 import GroupList from "./features/groups/GroupList";
+import GroupDetail from "./features/groups/GroupDetail";
 import CreateGroup from "./features/groups/CreateGroup";
 import PersonalCalendar from "./features/calendar/PersonalCalendar";
 import MeetingList from "./features/meetings/MeetingList";
@@ -29,6 +30,7 @@ export default function App() {
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/groups" element={<GroupList />} />
+        <Route path="/groups/:groupId" element={<GroupDetail />} />
         <Route path="/groups/new" element={<CreateGroup />} />
         <Route path="/groups/join" element={<CreateGroup />} />
         <Route path="/calendar" element={<PersonalCalendar />} />

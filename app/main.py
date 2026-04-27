@@ -17,9 +17,19 @@ from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db.bootstrap import ensure_runtime_schema
 from app.models import User
-from app.schemas.groups import CreateGroupRequest, GroupResponse, JoinGroupRequest
+from app.schemas.groups import (
+    CreateGroupRequest,
+    GroupAvailabilityResponse,
+    GroupAvailabilitySlotResponse,
+    GroupMemberActionResponse,
+    GroupDetailResponse,
+    GroupMemberResponse,
+    GroupResponse,
+    JoinGroupRequest,
+    TransferOwnershipRequest,
+)
 
-from app.api.deps import get_current_user,get_db
+from app.api.deps import get_current_user, get_db, require_group_role
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
@@ -110,6 +120,234 @@ def get_user_groups(current_user: User = Depends(get_current_user), db: Session 
     result = db.execute(query, {"user_id": current_user.id}).mappings().all()
     
     return [dict(row) for row in result]
+
+
+@router.get("/{group_id}", response_model=GroupDetailResponse)
+def get_group_detail(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    membership = db.execute(
+        text(
+            """
+            SELECT gm.role
+            FROM group_memberships gm
+            WHERE gm.group_id = :group_id AND gm.user_id = :user_id
+            """
+        ),
+        {"group_id": group_id, "user_id": current_user.id},
+    ).mappings().one_or_none()
+
+    if membership is None:
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    group_row = db.execute(
+        text("SELECT id, name, description FROM groups WHERE id = :group_id"),
+        {"group_id": group_id},
+    ).mappings().one_or_none()
+
+    if group_row is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    members = db.execute(
+        text(
+            """
+            SELECT
+                u.id,
+                u.first_name,
+                u.last_name,
+                u.email,
+                gm.role
+            FROM group_memberships gm
+            JOIN users u ON u.id = gm.user_id
+            WHERE gm.group_id = :group_id
+            ORDER BY gm.role = 'owner' DESC, u.first_name, u.last_name
+            """
+        ),
+        {"group_id": group_id},
+    ).mappings().all()
+
+    member_payload = [
+        GroupMemberResponse(
+            id=row["id"],
+            firstName=row["first_name"],
+            lastName=row["last_name"],
+            email=row["email"],
+            role=row["role"],
+        )
+        for row in members
+    ]
+
+    return GroupDetailResponse(
+        id=group_row["id"],
+        name=group_row["name"],
+        description=group_row["description"],
+        role=membership["role"],
+        memberCount=len(member_payload),
+        members=member_payload,
+    )
+
+
+@router.get("/{group_id}/availability", response_model=GroupAvailabilityResponse)
+def get_group_availability(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    group_row = db.execute(
+        text("SELECT id, name FROM groups WHERE id = :group_id"),
+        {"group_id": group_id},
+    ).mappings().one_or_none()
+
+    if group_row is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    membership = db.execute(
+        text(
+            """
+            SELECT role
+            FROM group_memberships
+            WHERE group_id = :group_id AND user_id = :user_id
+            """
+        ),
+        {"group_id": group_id, "user_id": current_user.id},
+    ).mappings().one_or_none()
+
+    if membership is None:
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    rows = db.execute(
+        text(
+            """
+            SELECT
+                u.id AS member_id,
+                u.first_name,
+                u.last_name,
+                u.email,
+                gm.role,
+                tsp.day_of_week,
+                tsp.start_time,
+                tsp.end_time
+            FROM group_memberships gm
+            JOIN users u ON u.id = gm.user_id
+            LEFT JOIN time_slot_preferences tsp ON tsp.user_id = u.id
+            WHERE gm.group_id = :group_id
+            ORDER BY gm.role = 'owner' DESC, u.first_name, u.last_name, tsp.day_of_week, tsp.start_time
+            """
+        ),
+        {"group_id": group_id},
+    ).mappings().all()
+
+    slot_payload = [
+        GroupAvailabilitySlotResponse(
+            memberId=row["member_id"],
+            firstName=row["first_name"],
+            lastName=row["last_name"],
+            email=row["email"],
+            role=row["role"],
+            dayOfWeek=row["day_of_week"],
+            startTime=row["start_time"].isoformat() if row["start_time"] else "",
+            endTime=row["end_time"].isoformat() if row["end_time"] else "",
+        )
+        for row in rows
+        if row["day_of_week"] is not None and row["start_time"] is not None and row["end_time"] is not None
+    ]
+
+    return GroupAvailabilityResponse(
+        groupId=group_row["id"],
+        groupName=group_row["name"],
+        slots=slot_payload,
+    )
+
+
+@router.post("/{group_id}/transfer-ownership", response_model=GroupMemberActionResponse)
+def transfer_group_ownership(
+    group_id: int,
+    payload: TransferOwnershipRequest,
+    owner_membership=Depends(require_group_role("owner")),
+    db: Session = Depends(get_db),
+):
+    if payload.newOwnerId == owner_membership.user_id:
+        raise HTTPException(status_code=400, detail="This member is already the owner")
+
+    target_membership = db.execute(
+        text(
+            """
+            SELECT user_id, role
+            FROM group_memberships
+            WHERE group_id = :group_id AND user_id = :user_id
+            """
+        ),
+        {"group_id": group_id, "user_id": payload.newOwnerId},
+    ).mappings().one_or_none()
+
+    if target_membership is None:
+        raise HTTPException(status_code=404, detail="Target member not found in this group")
+
+    if target_membership["role"] == "owner":
+        raise HTTPException(status_code=400, detail="This member is already the owner")
+
+    db.execute(
+        text(
+            """
+            UPDATE group_memberships
+            SET role = 'member'
+            WHERE group_id = :group_id AND user_id = :current_owner_id
+            """
+        ),
+        {"group_id": group_id, "current_owner_id": owner_membership.user_id},
+    )
+
+    db.execute(
+        text(
+            """
+            UPDATE group_memberships
+            SET role = 'owner'
+            WHERE group_id = :group_id AND user_id = :new_owner_id
+            """
+        ),
+        {"group_id": group_id, "new_owner_id": payload.newOwnerId},
+    )
+
+    db.commit()
+    return GroupMemberActionResponse(detail="Ownership transferred successfully")
+
+
+@router.delete("/{group_id}/members/{member_id}", response_model=GroupMemberActionResponse)
+def remove_group_member(
+    group_id: int,
+    member_id: int,
+    owner_membership=Depends(require_group_role("owner")),
+    db: Session = Depends(get_db),
+):
+    if member_id == owner_membership.user_id:
+        raise HTTPException(status_code=400, detail="Owner cannot remove themselves")
+
+    target_membership = db.execute(
+        text(
+            """
+            SELECT user_id, role
+            FROM group_memberships
+            WHERE group_id = :group_id AND user_id = :member_id
+            """
+        ),
+        {"group_id": group_id, "member_id": member_id},
+    ).mappings().one_or_none()
+
+    if target_membership is None:
+        raise HTTPException(status_code=404, detail="Member not found in this group")
+
+    if target_membership["role"] == "owner":
+        raise HTTPException(status_code=400, detail="Transfer ownership before removing this member")
+
+    db.execute(
+        text(
+            """
+            DELETE FROM group_memberships
+            WHERE group_id = :group_id AND user_id = :member_id
+            """
+        ),
+        {"group_id": group_id, "member_id": member_id},
+    )
+    db.commit()
+    return GroupMemberActionResponse(detail="Member removed from group")
 
 
 def _group_id_from_invite_code(invite_code: str) -> int | None:

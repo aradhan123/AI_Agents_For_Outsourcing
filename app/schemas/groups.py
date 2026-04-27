@@ -16,3 +16,45 @@ class GroupResponse(BaseModel):
     name: str
     description: str | None = None
     role: str
+
+
+class GroupMemberResponse(BaseModel):
+    id: int
+    firstName: str
+    lastName: str
+    email: str
+    role: str
+
+
+class GroupDetailResponse(BaseModel):
+    id: int
+    name: str
+    description: str | None = None
+    role: str
+    memberCount: int
+    members: list[GroupMemberResponse]
+
+
+class TransferOwnershipRequest(BaseModel):
+    newOwnerId: int = Field(ge=1)
+
+
+class GroupMemberActionResponse(BaseModel):
+    detail: str
+
+
+class GroupAvailabilitySlotResponse(BaseModel):
+    memberId: int
+    firstName: str
+    lastName: str
+    email: str
+    role: str
+    dayOfWeek: int
+    startTime: str
+    endTime: str
+
+
+class GroupAvailabilityResponse(BaseModel):
+    groupId: int
+    groupName: str
+    slots: list[GroupAvailabilitySlotResponse]

@@ -13,7 +13,6 @@ export default function CreateGroup() {
 	const [groupName, setGroupName] = useState("");
 	const [description, setDescription] = useState("");
 	const [inviteCode, setInviteCode] = useState("");
-	const [groupId, setGroupId] = useState("");
 
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState("");
@@ -55,22 +54,20 @@ export default function CreateGroup() {
 		setError("");
 		setSuccess("");
 
-		const parsedGroupId = groupId.trim() ? Number(groupId) : undefined;
+		const token = inviteCode.trim();
 
-		if (!inviteCode.trim() && !parsedGroupId) {
-			setError("Enter an invite code or a group ID.");
+		if (!token) {
+			setError("Enter an invitation code.");
 			setIsSubmitting(false);
 			return;
 		}
 
 		try {
 			await joinGroup({
-				inviteCode: inviteCode.trim() || undefined,
-				groupId: Number.isFinite(parsedGroupId) ? parsedGroupId : undefined,
+				inviteCode: token,
 			});
 			setSuccess("You joined the group. Redirecting...");
 			setInviteCode("");
-			setGroupId("");
 			window.setTimeout(() => navigate("/groups"), 700);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Could not join group");
@@ -160,32 +157,18 @@ export default function CreateGroup() {
 					<form className="space-y-4" onSubmit={handleJoinSubmit}>
 						<div>
 							<label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
-								Invite Code
+								Invitation Code
 							</label>
 							<input
 								value={inviteCode}
 								onChange={(e) => setInviteCode(e.target.value)}
+								autoComplete="one-time-code"
 								className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-white"
-								placeholder="ABC123"
+								placeholder="123456789"
 							/>
-						</div>
-
-						<div className="text-xs font-semibold tracking-wide uppercase text-slate-500 dark:text-slate-400">
-							or
-						</div>
-
-						<div>
-							<label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
-								Group ID
-							</label>
-							<input
-								type="number"
-								min={1}
-								value={groupId}
-								onChange={(e) => setGroupId(e.target.value)}
-								className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-white"
-								placeholder="12"
-							/>
+							<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+								Enter the code shown in the three-dot menu on the group card.
+							</p>
 						</div>
 
 						<button
