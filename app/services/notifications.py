@@ -317,6 +317,7 @@ def _load_meeting_context(meeting_id: int, db: Session) -> dict | None:
                 m.id,
                 m.title,
                 m.location,
+                m.meeting_type,
                 m.start_time,
                 m.end_time,
                 creator.first_name AS organizer_first_name,
@@ -357,6 +358,18 @@ def _format_meeting_window(context: dict) -> str:
     return f"{start} - {end}"
 
 
+def _build_invite_message(context: dict, organizer_name: str) -> str:
+    details_label = "Meeting link" if context.get("meeting_type") == "virtual" else "Location"
+    details_value = context.get("location") or "TBD"
+    time_summary = _format_meeting_window(context)
+    return (
+        f"{organizer_name} invited you to '{context['title']}'.\n"
+        f"When: {time_summary}\n"
+        f"{details_label}: {details_value}\n"
+        f"Manage your RSVP in the app: {settings.app_base_url}/meetings"
+    )
+
+
 def notify_meeting_invite(meeting_id: int, db: Session) -> None:
     context = _load_meeting_context(meeting_id, db)
     if context is None:
@@ -364,17 +377,11 @@ def notify_meeting_invite(meeting_id: int, db: Session) -> None:
 
     recipients = [recipient for recipient in _load_notification_recipients(meeting_id, db) if recipient["status"] == "invited"]
     organizer_name = " ".join(filter(None, [context.get("organizer_first_name"), context.get("organizer_last_name")])).strip() or "Your organizer"
-    time_summary = _format_meeting_window(context)
 
     for recipient in recipients:
         preferences = get_or_create_notification_preferences(recipient["id"], db)
         subject = f"Meeting invite: {context['title']}"
-        message = (
-            f"{organizer_name} invited you to '{context['title']}'.\n"
-            f"When: {time_summary}\n"
-            f"Location: {context.get('location') or 'TBD'}\n"
-            f"Manage your RSVP in the app: {settings.app_base_url}/meetings"
-        )
+        message = _build_invite_message(context, organizer_name)
 
         if preferences["in_app"]:
             create_in_app_notification(

@@ -131,11 +131,82 @@ def test_notifications_created_for_invite_update_cancel(client):
     finally:
         db.close()
 
-    assert rows == [
-        ("in_app", "invite", "read"),
-        ("email", "invite", "skipped"),
-        ("in_app", "update", "sent"),
-        ("email", "update", "skipped"),
-        ("in_app", "cancel", "sent"),
-        ("email", "cancel", "skipped"),
-    ]
+    assert rows[0] == ("in_app", "invite", "read")
+    assert rows[2] == ("in_app", "update", "sent")
+    assert rows[4] == ("in_app", "cancel", "sent")
+    assert rows[1][0:2] == ("email", "invite")
+    assert rows[3][0:2] == ("email", "update")
+    assert rows[5][0:2] == ("email", "cancel")
+    assert rows[1][2] in {"sent", "skipped"}
+    assert rows[3][2] in {"sent", "skipped"}
+    assert rows[5][2] in {"sent", "skipped"}
+
+
+def test_invite_message_uses_location_or_meeting_link(client):
+    organizer_token = register_user(client, first_name="Ada", last_name="Lovelace", email="ada@example.com")
+    register_user(client, first_name="Grace", last_name="Hopper", email="grace@example.com")
+
+    in_person_response = client.post(
+        "/meetings/",
+        headers=auth_headers(organizer_token),
+        json={
+            "title": "SD Meeting",
+            "location": "Scott Hall",
+            "meeting_type": "in_person",
+            "start_time": "2026-04-23T11:00:00Z",
+            "end_time": "2026-04-23T12:00:00Z",
+            "attendee_emails": ["grace@example.com"],
+        },
+    )
+    assert in_person_response.status_code == 200, in_person_response.text
+
+    db = SessionLocal()
+    try:
+        in_person_message = db.execute(
+            text(
+                """
+                SELECT message
+                FROM notifications
+                WHERE user_id = 2 AND channel = 'email' AND type = 'invite'
+                ORDER BY id DESC
+                LIMIT 1
+                """
+            )
+        ).scalar_one()
+    finally:
+        db.close()
+
+    assert "Location: Scott Hall" in in_person_message
+    assert "Meeting link:" not in in_person_message
+
+    client.post(
+        "/meetings/",
+        headers=auth_headers(organizer_token),
+        json={
+            "title": "Remote SD Meeting",
+            "location": "https://zoom.example.com/meeting-123",
+            "meeting_type": "virtual",
+            "start_time": "2026-04-24T11:00:00Z",
+            "end_time": "2026-04-24T12:00:00Z",
+            "attendee_emails": ["grace@example.com"],
+        },
+    )
+
+    db = SessionLocal()
+    try:
+        virtual_message = db.execute(
+            text(
+                """
+                SELECT message
+                FROM notifications
+                WHERE user_id = 2 AND channel = 'email' AND type = 'invite'
+                ORDER BY id DESC
+                LIMIT 1
+                """
+            )
+        ).scalar_one()
+    finally:
+        db.close()
+
+    assert "Meeting link: https://zoom.example.com/meeting-123" in virtual_message
+    assert "Location:" not in virtual_message

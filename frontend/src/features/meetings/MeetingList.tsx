@@ -47,19 +47,22 @@ const RSVP_STYLES = {
     active: "bg-green-500 text-white border-green-500",
     inactive: "border border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950",
     dot: "bg-green-500",
-    label: "Accepted",
+    label: "Accept",
+    activeLabel: "Accepted",
   },
   declined: {
     active: "bg-red-500 text-white border-red-500",
     inactive: "border border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950",
     dot: "bg-red-500",
-    label: "Declined",
+    label: "Decline",
+    activeLabel: "Declined",
   },
   maybe: {
     active: "bg-yellow-400 text-white border-yellow-400",
     inactive: "border border-yellow-200 text-yellow-700 hover:bg-yellow-50 dark:border-yellow-800 dark:text-yellow-400 dark:hover:bg-yellow-950",
     dot: "bg-yellow-400",
     label: "Maybe",
+    activeLabel: "Maybe",
   },
 } as const;
 
@@ -219,6 +222,11 @@ function MeetingCard({
     ? "border-yellow-400 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-900/20"
     : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900";
 
+  function getRsvpLabel(status: keyof typeof RSVP_STYLES) {
+    if (status === "maybe") return RSVP_STYLES[status].label;
+    return rsvp === status ? RSVP_STYLES[status].activeLabel : RSVP_STYLES[status].label;
+  }
+
   return (
     <article className={`rounded-2xl border p-5 shadow-sm transition-all ${cardBg}`}>
       <div className="flex justify-between items-start gap-2">
@@ -246,14 +254,14 @@ function MeetingCard({
           <ul className="mt-3 space-y-1">
             {meeting.attendees.map((attendee) => (
               <li key={attendee.email} className="flex items-center justify-between text-sm">
-                <span className="text-slate-700 dark:text-slate-300">
+                <span className={attendee.status === "invited" ? "text-slate-900 dark:text-slate-100" : "text-slate-700 dark:text-slate-300"}>
                   {attendee.first_name ? `${attendee.first_name} ${attendee.last_name}` : attendee.email}
                 </span>
                 <span className={`text-xs font-medium capitalize ${
                   attendee.status === "accepted" ? "text-green-600"
                   : attendee.status === "declined" ? "text-red-500"
                   : attendee.status === "maybe" ? "text-yellow-500"
-                  : "text-slate-400"
+                  : "text-slate-600 dark:text-slate-300"
                 }`}>
                   {attendee.status ?? "pending"}
                 </span>
@@ -286,7 +294,7 @@ function MeetingCard({
                 rsvp === s ? RSVP_STYLES[s].active : RSVP_STYLES[s].inactive
               }`}
             >
-              {RSVP_STYLES[s].label}
+              {getRsvpLabel(s)}
             </button>
           ))}
         </div>
